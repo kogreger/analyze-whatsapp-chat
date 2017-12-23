@@ -1,6 +1,7 @@
 ## before execution make sure to remove emoji from WhatsApp chat export. This can be 
 ## achieved e.g. in Notepad++ using the following regular expression (replace by ""):
 ## [\x{D83C}-\x{DBFF}\x{DC00}-\x{DFFF}]+
+## (cf. https://stackoverflow.com/questions/24840667/what-is-the-regex-to-extract-all-the-emojis-from-a-string)
 
 
 ## load necessary libraries
@@ -49,8 +50,10 @@ whatsapp <- read_file("C:/Users/kgreger/Downloads/WhatsApp Chat - Test/_chat.txt
   select(timestamp, sender, text) %>% 
   # remove messages missing timestamps
   filter(!is.na(timestamp)) %>% 
-  # remove sent images/videos
-  filter(!grepl("\\d{4}-\\d{2}-\\d{2}-PHOTO-\\d{8}\\.(jpg|mp4) <.+?>", text)) %>% 
+  # remove sent images/videos/audio (version with included media)
+  filter(!grepl("\\d{4}-\\d{2}-\\d{2}-PHOTO-\\d{8}\\.(jpg|mp4|opus) <.+?>", text)) %>% 
+  # remove sent images/videos/audio (version without included media)
+  filter(!grepl("<(image|audio|video) omitted>", text)) %>% 
   # add unique message identifier
   mutate(msgid = row_number())
 
