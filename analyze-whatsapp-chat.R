@@ -8,6 +8,7 @@
 library(dplyr)
 library(readr)
 library(tidytext)
+library(sentiment)
 
 ## function to parse the information from WhatsApp chat export 
 ## (cf. https://stat.ethz.ch/R-manual/R-devel/library/base/html/grep.html)
@@ -55,7 +56,9 @@ whatsapp <- read_file("C:/Users/kgreger/Downloads/WhatsApp Chat - Test/_chat.txt
   # remove sent images/videos/audio (version without included media)
   filter(!grepl("<(image|audio|video) omitted>", text)) %>% 
   # add unique message identifier
-  mutate(msgid = row_number())
+  mutate(msgid = row_number(), 
+         polarity = get_polarity(text), 
+         sentiment = get_emotion(text))
 
 
 ## export line-by-line version of WhatsApp chat
@@ -74,7 +77,9 @@ stop_words <- stop_words %>%
 token <- whatsapp %>% 
   unnest_tokens(word, text) %>% 
   # add unique token identifier
-  mutate(tokenid = row_number()) %>% 
+  mutate(tokenid = row_number(), 
+         polarity = get_polarity(word), 
+         sentiment = get_emotion(word)) %>% 
   # add stopword classifier
   left_join(stop_words, 
             by = "word")
