@@ -75,7 +75,8 @@ stop_words <- stop_words %>%
 
 ## tokenize WhatsApp chat for text analysis
 token <- whatsapp %>% 
-  unnest_tokens(word, text) %>% 
+  unnest_tokens(word, 
+                text) %>% 
   # add unique token identifier
   mutate(tokenid = row_number(), 
          polarity = get_polarity(word), 
@@ -88,3 +89,17 @@ token <- whatsapp %>%
 ## export tokenized version of WhatsApp chat
 write_csv(token, 
           "C:/Users/kgreger/Downloads/WhatsApp Chat - Test/token.csv")
+
+
+## extract bigrams from WhatsApp chat
+bigrams <- whatsapp %>% 
+  select(-sentiment, -polarity) %>% 
+  unnest_tokens(bigram, 
+                text, 
+                token = "ngrams", 
+                n = 2)
+
+
+## export bigram version of WhatsApp chat
+write_csv(bigrams, 
+          "C:/Users/kgreger/Downloads/WhatsApp Chat - Test/bigrams.csv")
