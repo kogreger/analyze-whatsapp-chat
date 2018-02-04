@@ -10,6 +10,9 @@ library(readr)
 library(tidytext)
 library(sentiment)
 
+## set path for file locations
+path <- "C:/Users/kgreger/Downloads/WhatsApp Chat - Test"
+
 ## function to parse the information from WhatsApp chat export 
 ## (cf. https://stat.ethz.ch/R-manual/R-devel/library/base/html/grep.html)
 parse.whatsapp <- function(res, 
@@ -33,7 +36,9 @@ parse.whatsapp <- function(res,
 
 
 ## load and parse WhatsApp chat export text file
-whatsapp <- read_file("C:/Users/kgreger/Downloads/WhatsApp Chat - Test/_chat.txt") %>% 
+whatsapp <- read_file(paste(path, 
+                            "_chat.txt", 
+                            sep = "/")) %>% 
   strsplit("\r\n") %>% 
   unlist() %>% 
   # remove line breaks in messages
@@ -41,20 +46,29 @@ whatsapp <- read_file("C:/Users/kgreger/Downloads/WhatsApp Chat - Test/_chat.txt
        "", 
        .) %>% 
   # parse and split messages into tibble
-  parse.whatsapp(regexpr("(?<date>\\d{2}\\.\\d{2}\\.\\d{2}), (?<time>\\d{2}:\\d{2}:\\d{2}): (?<sender>.+?): (?<text>.*)", 
+  parse.whatsapp(regexpr("\\[(?<date>\\d{2}\\.\\d{2}\\.\\d{2}), (?<time>\\d{2}:\\d{2}:\\d{2})\\] (?<sender>.+?): (?<message>.*)", 
                          ., 
                          perl = TRUE)) %>% 
   as_tibble() %>% 
+  slice(2:n()) %>% 
   # convert to timestamp
   mutate(timestamp = as.POSIXct(strptime(paste(date, time), 
                                          format ="%d.%m.%y %H:%M:%S"))) %>% 
-  select(timestamp, sender, text) %>% 
+  select(timestamp, sender, message) %>% 
   # remove messages missing timestamps
   filter(!is.na(timestamp)) %>% 
+  # parse text or included media
+  mutate(text = ifelse(!grepl("\\d{4}-\\d{2}-\\d{2}-(PHOTO|VIDEO|AUDIO)-\\d{8}\\.(jpg|mp4|opus) <.+?>", message), 
+                       message, 
+                       ""), 
+         media = ifelse(!grepl("\\d{4}-\\d{2}-\\d{2}-(PHOTO|VIDEO|AUDIO)-\\d{8}\\.(jpg|mp4|opus) <.+?>", message), 
+                        "", 
+                        gsub("(\\d{4}-\\d{2}-\\d{2}-(PHOTO|VIDEO|AUDIO)-\\d{8}\\.(jpg|mp4|opus)) <.+?>", "\\1", message))) %>% 
   # remove sent images/videos/audio (version with included media)
-  filter(!grepl("\\d{4}-\\d{2}-\\d{2}-PHOTO-\\d{8}\\.(jpg|mp4|opus) <.+?>", text)) %>% 
+  #filter(!grepl("\\d{4}-\\d{2}-\\d{2}-(PHOTO|VIDEO|AUDIO)-\\d{8}\\.(jpg|mp4|opus) <.+?>", message)) %>% 
   # remove sent images/videos/audio (version without included media)
-  filter(!grepl("<(image|audio|video) omitted>", text)) %>% 
+  filter(!grepl("<(image|video|audio) omitted>", message)) %>% 
+  select(timestamp, sender, text, media) %>% 
   # add unique message identifier
   mutate(msgid = row_number(), 
          polarity = get_polarity(text), 
@@ -63,7 +77,9 @@ whatsapp <- read_file("C:/Users/kgreger/Downloads/WhatsApp Chat - Test/_chat.txt
 
 ## export line-by-line version of WhatsApp chat
 write_csv(whatsapp, 
-          "C:/Users/kgreger/Downloads/WhatsApp Chat - Test/chat.csv")
+          paste(path, 
+                "chat.txt", 
+                sep = "/"))
 
 
 ## prepare stopword dictionary (i.e. remove duplicates from multiple lexicons)
@@ -75,6 +91,7 @@ stop_words <- stop_words %>%
 
 ## tokenize WhatsApp chat for text analysis
 token <- whatsapp %>% 
+  select(-media) %>% 
   unnest_tokens(word, 
                 text) %>% 
   # add unique token identifier
@@ -88,12 +105,14 @@ token <- whatsapp %>%
 
 ## export tokenized version of WhatsApp chat
 write_csv(token, 
-          "C:/Users/kgreger/Downloads/WhatsApp Chat - Test/token.csv")
+          paste(path, 
+                "token.txt", 
+                sep = "/"))
 
 
 ## extract bigrams from WhatsApp chat
 bigrams <- whatsapp %>% 
-  select(-sentiment, -polarity) %>% 
+  select(-sentiment, -polarity, -media) %>% 
   unnest_tokens(bigram, 
                 text, 
                 token = "ngrams", 
@@ -102,4 +121,6 @@ bigrams <- whatsapp %>%
 
 ## export bigram version of WhatsApp chat
 write_csv(bigrams, 
-          "C:/Users/kgreger/Downloads/WhatsApp Chat - Test/bigrams.csv")
+          paste(path, 
+                "bigram.txt", 
+                sep = "/"))
